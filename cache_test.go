@@ -1,10 +1,29 @@
 package cache
 
 import (
+	"bytes"
+	"encoding/gob"
 	. "github.com/smartystreets/goconvey/convey"
 	"reflect"
 	"testing"
 )
+
+func TestReflection(t *testing.T) {
+	Convey("Reflection", t, func() {
+		var (
+			buff      = new(bytes.Buffer)
+			encoder   = gob.NewEncoder(buff)
+			decoder   = gob.NewDecoder(buff)
+			value     string
+			v         interface{} = &value
+			valueType             = reflect.TypeOf(v).Elem()
+			valuePtr              = reflect.New(valueType)
+		)
+		So(encoder.Encode(value), ShouldBeNil)
+		So(decoder.Decode(valuePtr.Interface()), ShouldBeNil)
+		So(valuePtr.Elem().Interface().(string), ShouldEqual, value)
+	})
+}
 
 func TestCache(t *testing.T) {
 	Convey("Cache", t, func() {

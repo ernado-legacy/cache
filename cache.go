@@ -2,7 +2,7 @@ package cache
 
 import (
 	"errors"
-	// "sync"
+	"reflect"
 )
 
 var (
@@ -33,8 +33,7 @@ func (c *DefaultClient) AddProvider(p Provider) {
 }
 
 func NewClient() Client {
-	c := new(DefaultClient)
-	return c
+	return new(DefaultClient)
 }
 
 func newClientAsProviderDefault() Provider {
@@ -45,18 +44,42 @@ func newClientAsProviderDefault() Provider {
 	return c
 }
 
-func (c *DefaultClient) Get(key string, v interface{}) (err error) {
+func (c *DefaultClient) Get(key string, v interface{}) error {
+	type Result struct {
+		Value interface{}
+		Error error
+	}
+	var (
+		count = len(c.providers)
+		rv    = reflect.ValueOf(v)
+	)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return ErrorShouldBePointer
+	}
+	if count == 0 {
+		return ErrorNoProviders
+	}
+	var (
+		results   = make(chan Result)
+		valueType = reflect.TypeOf(v).Elem()
+	)
 	for _, provider := range c.providers {
-		err = provider.Get(key, v)
-		if err == ErrorNotExist {
-			continue
+		go func() {
+			value := reflect.New(valueType).Interface()
+			err := provider.Get(key, value)
+			results <- Result{value, err}
+		}()
+	}
+	var err error
+	for i := 0; i < count; i++ {
+		data := <-results
+		if data.Error == nil {
+			rv.Elem().Set(reflect.ValueOf(data.Value).Elem())
+			return nil
 		}
-		return
+		err = data.Error
 	}
-	if err == ErrorNotExist {
-		return
-	}
-	return ErrorNoProviders
+	return err
 }
 
 func (c *DefaultClient) Remove(key string) (err error) {
@@ -76,11 +99,13 @@ func (c *DefaultClient) Remove(key string) (err error) {
 }
 
 func (c *DefaultClient) Set(key string, v interface{}) error {
-	count := len(c.providers)
+	var (
+		count = len(c.providers)
+		errs  = make(chan error, count)
+	)
 	if count == 0 {
 		return ErrorNoProviders
 	}
-	errs := make(chan error, count)
 	for _, provider := range c.providers {
 		go func() {
 			errs <- provider.Set(key, v)
