@@ -12,28 +12,34 @@ func TestCache(t *testing.T) {
 			provider := f()
 			name := reflect.ValueOf(provider).Elem().Type().Name()
 			Convey(name, func() {
-				Convey("Set", func() {
-					v := "testing:data"
-					key := "key"
+				Convey("Set "+name, func() {
+					v := "testing:data:" + name
+					key := v
 					So(provider.Set(key, v), ShouldBeNil)
-					Convey("Set structure", func() {
+					Convey("Set structure "+name, func() {
 						type Data struct {
 							A int
 							B string
+							C []byte
 						}
-						v := Data{6, "data"}
+						v := Data{6, "data", []byte("test")}
 						So(provider.Set(key, v), ShouldBeNil)
+						value := new(Data)
+						So(provider.Get(key, value), ShouldBeNil)
+						So(value.A, ShouldEqual, v.A)
+						So(value.B, ShouldEqual, v.B)
+						So(string(value.C), ShouldEqual, string(v.C))
 					})
-					Convey("Get", func() {
+					Convey("Get "+name, func() {
 						var value string
 						So(provider.Get(key, &value), ShouldBeNil)
 						So(value, ShouldEqual, v)
 					})
-					Convey("Remove", func() {
+					Convey("Remove "+name, func() {
 						So(provider.Remove(key), ShouldBeNil)
 						So(provider.Get(key, &v), ShouldEqual, ErrorNotExist)
 					})
-					Convey("Wrong type", func() {
+					Convey("Wrong type "+name, func() {
 						var value int
 						So(provider.Get(key, value), ShouldNotBeNil)
 						So(provider.Get(key, &value), ShouldNotBeNil)
@@ -44,6 +50,7 @@ func TestCache(t *testing.T) {
 		TestProvider(MemoryProvider)
 		TestProvider(RedisProviderDefault)
 		TestProvider(LedisProviderDefault)
+		TestProvider(newClientAsProviderDefault)
 	})
 }
 
@@ -76,4 +83,16 @@ func MakeBenchmarkGet(callback func() Provider) func(*testing.B) {
 			provider.Set("key", &v)
 		}
 	}
+}
+
+func BenchmarkClientGet(b *testing.B) {
+	MakeBenchmarkGet(newClientAsProviderDefault)(b)
+}
+
+func BenchmarkClientSet(b *testing.B) {
+	MakeBenchmarkSet(newClientAsProviderDefault)(b)
+}
+
+func BenchmarkClientSetParallel(b *testing.B) {
+	MakeBenchmarkSetParallel(newClientAsProviderDefault)(b)
 }
