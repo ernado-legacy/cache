@@ -18,6 +18,7 @@ type MemoryCache struct {
 func MemoryProvider() Provider {
 	m := new(MemoryCache)
 	m.data = make(map[string]*memoryEntry)
+	m.tick()
 	go m.cycle()
 	return m
 }
