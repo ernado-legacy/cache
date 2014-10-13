@@ -44,7 +44,7 @@ func newClientAsProviderDefault() Provider {
 	return c
 }
 
-func (c *DefaultClient) Get(key string, v interface{}) error {
+func (c *DefaultClient) Get(key string, v interface{}) (err error) {
 	type Result struct {
 		Value interface{}
 		Error error
@@ -66,18 +66,16 @@ func (c *DefaultClient) Get(key string, v interface{}) error {
 	for _, provider := range c.providers {
 		go func() {
 			value := reflect.New(valueType).Interface()
-			err := provider.Get(key, value)
-			results <- Result{value, err}
+			results <- Result{value, provider.Get(key, value)}
 		}()
 	}
-	var err error
 	for i := 0; i < count; i++ {
-		data := <-results
-		if data.Error == nil {
+		if data := <-results; data.Error == nil {
 			rv.Elem().Set(reflect.ValueOf(data.Value).Elem())
-			return nil
+			return
+		} else {
+			err = data.Error
 		}
-		err = data.Error
 	}
 	return err
 }
@@ -102,6 +100,7 @@ func (c *DefaultClient) Set(key string, v interface{}) error {
 	var (
 		count = len(c.providers)
 		errs  = make(chan error, count)
+		err   error
 	)
 	if count == 0 {
 		return ErrorNoProviders
@@ -112,8 +111,7 @@ func (c *DefaultClient) Set(key string, v interface{}) error {
 		}()
 	}
 	for i := 0; i < count; i++ {
-		err := <-errs
-		if err != nil {
+		if err = <-errs; err != nil {
 			return err
 		}
 	}
@@ -125,8 +123,7 @@ func (c *DefaultClient) TTL(key string, ttl uint64) (err error) {
 		return ErrorNoProviders
 	}
 	for _, provider := range c.providers {
-		err = provider.TTL(key, ttl)
-		if err != nil {
+		if err = provider.TTL(key, ttl); err != nil {
 			return
 		}
 	}
