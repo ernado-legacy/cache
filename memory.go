@@ -11,24 +11,24 @@ type memoryEntry struct {
 	temporary bool
 }
 
-type MemoryCache struct {
+type memoryCache struct {
 	data map[string]*memoryEntry
 }
 
 func MemoryProvider() Provider {
-	m := new(MemoryCache)
+	m := new(memoryCache)
 	m.data = make(map[string]*memoryEntry)
 	m.tick()
 	go m.cycle()
 	return m
 }
 
-func (c *MemoryCache) Set(key string, v interface{}) error {
+func (c *memoryCache) Set(key string, v interface{}) error {
 	c.data[key] = &memoryEntry{value: v}
 	return nil
 }
 
-func (c *MemoryCache) tick() {
+func (c *memoryCache) tick() {
 	for k := range c.data {
 		if !c.data[k].temporary {
 			continue
@@ -40,14 +40,14 @@ func (c *MemoryCache) tick() {
 	}
 }
 
-func (c *MemoryCache) cycle() {
+func (c *memoryCache) cycle() {
 	ticker := time.NewTicker(time.Second)
 	for _ = range ticker.C {
 		c.tick()
 	}
 }
 
-func (c *MemoryCache) Get(key string, v interface{}) (err error) {
+func (c *memoryCache) Get(key string, v interface{}) (err error) {
 	defer func() {
 		r := recover()
 		if r == nil {
@@ -67,7 +67,7 @@ func (c *MemoryCache) Get(key string, v interface{}) (err error) {
 	return nil
 }
 
-func (c *MemoryCache) Remove(key string) error {
+func (c *memoryCache) Remove(key string) error {
 	_, ok := c.data[key]
 	if !ok {
 		return ErrorNotExist
@@ -76,7 +76,7 @@ func (c *MemoryCache) Remove(key string) error {
 	return nil
 }
 
-func (c *MemoryCache) TTL(key string, ttl uint64) error {
+func (c *memoryCache) TTL(key string, ttl uint64) error {
 	_, ok := c.data[key]
 	if !ok {
 		return ErrorNotExist

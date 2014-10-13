@@ -15,3 +15,15 @@ func BenchmarkLedisSet(b *testing.B) {
 func BenchmarkLedisSetParallel(b *testing.B) {
 	MakeBenchmarkSetParallel(LedisProviderDefault)(b)
 }
+
+func BenchmarkLedisToRedisGet(b *testing.B) {
+	MakeBenchmarkGet(LedisProviderToRedisDefault)(b)
+}
+
+func BenchmarkLedisToRedisSet(b *testing.B) {
+	MakeBenchmarkSet(LedisProviderToRedisDefault)(b)
+}
+
+func BenchmarkLedisToRedisParallel(b *testing.B) {
+	MakeBenchmarkSetParallel(LedisProviderToRedisDefault)(b)
+}

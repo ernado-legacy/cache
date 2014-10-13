@@ -7,14 +7,20 @@ import (
 	"time"
 )
 
-type RedisCache struct {
+const (
+	redisMaxIdle     = 3
+	redisIdleTimeout = time.Second * 240
+	redisDefaultAddr = ":6379"
+)
+
+type redisCache struct {
 	pool *redis.Pool
 }
 
 func newPool(server, password string) *redis.Pool {
 	return &redis.Pool{
-		MaxIdle:     3,
-		IdleTimeout: 240 * time.Second,
+		MaxIdle:     redisMaxIdle,
+		IdleTimeout: redisIdleTimeout,
 		Dial: func() (redis.Conn, error) {
 			c, err := redis.Dial("tcp", server)
 			if err != nil {
@@ -35,7 +41,7 @@ func newPool(server, password string) *redis.Pool {
 	}
 }
 
-func (c *RedisCache) Set(key string, v interface{}) error {
+func (c *redisCache) Set(key string, v interface{}) error {
 	buffer := new(bytes.Buffer)
 	encoder := gob.NewEncoder(buffer)
 	if err := encoder.Encode(v); err != nil {
@@ -49,7 +55,7 @@ func (c *RedisCache) Set(key string, v interface{}) error {
 	return nil
 }
 
-func (c *RedisCache) Get(key string, v interface{}) error {
+func (c *redisCache) Get(key string, v interface{}) error {
 	conn := c.pool.Get()
 	defer conn.Close()
 	data, err := redis.Bytes(conn.Do("GET", key))
@@ -64,7 +70,7 @@ func (c *RedisCache) Get(key string, v interface{}) error {
 	return decoder.Decode(v)
 }
 
-func (c *RedisCache) Remove(key string) error {
+func (c *redisCache) Remove(key string) error {
 	conn := c.pool.Get()
 	defer conn.Close()
 	_, err := conn.Do("DEL", key)
@@ -74,7 +80,7 @@ func (c *RedisCache) Remove(key string) error {
 	return err
 }
 
-func (c *RedisCache) TTL(key string, ttl uint64) error {
+func (c *redisCache) TTL(key string, ttl uint64) error {
 	conn := c.pool.Get()
 	defer conn.Close()
 	_, err := conn.Do("EXPIRE", key, ttl)
@@ -84,9 +90,11 @@ func (c *RedisCache) TTL(key string, ttl uint64) error {
 	return err
 }
 
+// RedisProvider returns new Provider
+// first argument is server address, second - password
 func RedisProvider(args ...string) (Provider, error) {
 	var (
-		server   = ":6379"
+		server   = redisDefaultAddr
 		password string
 	)
 
@@ -103,7 +111,7 @@ func RedisProvider(args ...string) (Provider, error) {
 		return nil, err
 	}
 	conn.Close()
-	return &RedisCache{pool}, err
+	return &redisCache{pool}, err
 }
 func RedisProviderDefault() Provider {
 	p, err := RedisProvider()

@@ -29,7 +29,13 @@ func TestCache(t *testing.T) {
 	Convey("Cache", t, func() {
 		TestProvider := func(f func() Provider) {
 			provider := f()
-			name := reflect.ValueOf(provider).Elem().Type().Name()
+			var name string
+			providerValue := reflect.ValueOf(provider)
+			if providerValue.Type().Kind() == reflect.Ptr {
+				name = providerValue.Elem().Type().Name()
+			} else {
+				name = providerValue.Type().Name()
+			}
 			Convey(name, func() {
 				Convey("Set "+name, func() {
 					v := "testing:data:" + name
@@ -70,6 +76,7 @@ func TestCache(t *testing.T) {
 		TestProvider(RedisProviderDefault)
 		TestProvider(LedisProviderDefault)
 		TestProvider(newClientAsProviderDefault)
+		TestProvider(LedisProviderToRedisDefault)
 	})
 }
 

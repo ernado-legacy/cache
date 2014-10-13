@@ -10,6 +10,7 @@ var (
 	ErrorShouldBePointer = errors.New("Should be pointer")
 	ErrorInvalidType     = errors.New("Unable to set value: invalid type")
 	ErrorNoProviders     = errors.New("No cache backends")
+	ErrorInvalidProvider = errors.New("Invalid provider")
 )
 
 type Provider interface {
@@ -21,30 +22,41 @@ type Provider interface {
 
 type Client interface {
 	Provider
-	AddProvider(Provider)
+	AddProvider(p interface{}) error
 }
 
-type DefaultClient struct {
+type defaultClient struct {
 	providers []Provider
 }
 
-func (c *DefaultClient) AddProvider(p Provider) {
-	c.providers = append(c.providers, p)
+func (c *defaultClient) AddProvider(i interface{}) error {
+	p, ok := i.(Provider)
+	if ok {
+		c.providers = append(c.providers, p)
+		return nil
+	}
+	callback, ok := i.(func() Provider)
+	if ok {
+		c.providers = append(c.providers, callback())
+		return nil
+	}
+	return ErrorInvalidProvider
 }
 
 func NewClient() Client {
-	return new(DefaultClient)
+	return new(defaultClient)
 }
 
 func newClientAsProviderDefault() Provider {
 	c := NewClient()
-	c.AddProvider(MemoryProvider())
-	c.AddProvider(RedisProviderDefault())
-	c.AddProvider(LedisProviderDefault())
+	c.AddProvider(MemoryProvider)
+	c.AddProvider(RedisProviderDefault)
+	c.AddProvider(LedisProviderDefault)
+	c.AddProvider(LedisProviderToRedisDefault)
 	return c
 }
 
-func (c *DefaultClient) Get(key string, v interface{}) (err error) {
+func (c *defaultClient) Get(key string, v interface{}) (err error) {
 	type Result struct {
 		Value interface{}
 		Error error
@@ -80,7 +92,7 @@ func (c *DefaultClient) Get(key string, v interface{}) (err error) {
 	return err
 }
 
-func (c *DefaultClient) Remove(key string) (err error) {
+func (c *defaultClient) Remove(key string) (err error) {
 	if len(c.providers) == 0 {
 		return ErrorNoProviders
 	}
@@ -96,7 +108,7 @@ func (c *DefaultClient) Remove(key string) (err error) {
 	return nil
 }
 
-func (c *DefaultClient) Set(key string, v interface{}) error {
+func (c *defaultClient) Set(key string, v interface{}) error {
 	var (
 		count = len(c.providers)
 		errs  = make(chan error, count)
@@ -118,7 +130,7 @@ func (c *DefaultClient) Set(key string, v interface{}) error {
 	return nil
 }
 
-func (c *DefaultClient) TTL(key string, ttl uint64) (err error) {
+func (c *defaultClient) TTL(key string, ttl uint64) (err error) {
 	if len(c.providers) == 0 {
 		return ErrorNoProviders
 	}

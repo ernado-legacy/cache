@@ -6,22 +6,34 @@ import (
 	"github.com/siddontang/ledisdb/client/go/ledis"
 )
 
-type LedisCache struct {
+const (
+	ledisDefaultAddr = "127.0.0.1:6380"
+	ledisMaxIdle     = 5
+)
+
+type ledisCache struct {
 	client *ledis.Client
 }
 
 func LedisProvider(config *ledis.Config) Provider {
-	return &LedisCache{ledis.NewClient(config)}
+	return ledisCache{ledis.NewClient(config)}
 }
 
 func LedisProviderDefault() Provider {
 	cfg := new(ledis.Config)
-	cfg.Addr = "127.0.0.1:6380"
-	cfg.MaxIdleConns = 5
+	cfg.Addr = ledisDefaultAddr
+	cfg.MaxIdleConns = ledisMaxIdle
 	return LedisProvider(cfg)
 }
 
-func (c LedisCache) Set(key string, value interface{}) error {
+func LedisProviderToRedisDefault() Provider {
+	cfg := new(ledis.Config)
+	cfg.Addr = redisDefaultAddr
+	cfg.MaxIdleConns = ledisMaxIdle
+	return LedisProvider(cfg)
+}
+
+func (c ledisCache) Set(key string, value interface{}) error {
 	buffer := new(bytes.Buffer)
 	encoder := gob.NewEncoder(buffer)
 	if err := encoder.Encode(value); err != nil {
@@ -31,7 +43,7 @@ func (c LedisCache) Set(key string, value interface{}) error {
 	return err
 }
 
-func (c LedisCache) Get(key string, v interface{}) error {
+func (c ledisCache) Get(key string, v interface{}) error {
 	data, err := ledis.Bytes(c.client.Do("get", key))
 	if err == ledis.ErrNil {
 		return ErrorNotExist
@@ -44,7 +56,7 @@ func (c LedisCache) Get(key string, v interface{}) error {
 	return decoder.Decode(v)
 }
 
-func (c LedisCache) Remove(key string) error {
+func (c ledisCache) Remove(key string) error {
 	_, err := c.client.Do("del", key)
 	if err == ledis.ErrNil {
 		return ErrorNotExist
@@ -52,7 +64,7 @@ func (c LedisCache) Remove(key string) error {
 	return err
 }
 
-func (c LedisCache) TTL(key string, ttl uint64) error {
+func (c ledisCache) TTL(key string, ttl uint64) error {
 	_, err := c.client.Do("expire", key, ttl)
 	if err == ledis.ErrNil {
 		return ErrorNotExist
