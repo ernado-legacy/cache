@@ -1,8 +1,7 @@
 package cache
 
 import (
-	"bytes"
-	"encoding/gob"
+	"encoding/json"
 	"github.com/garyburd/redigo/redis"
 	"time"
 )
@@ -42,14 +41,13 @@ func newPool(server, password string) *redis.Pool {
 }
 
 func (c *redisCache) Set(key string, v interface{}) error {
-	buffer := new(bytes.Buffer)
-	encoder := gob.NewEncoder(buffer)
-	if err := encoder.Encode(v); err != nil {
+	data, err := json.Marshal(v)
+	if err != nil {
 		return err
 	}
 	conn := c.pool.Get()
 	defer conn.Close()
-	if _, err := conn.Do("SET", key, buffer.Bytes()); err != nil {
+	if _, err := conn.Do("SET", key, data); err != nil {
 		return err
 	}
 	return nil
@@ -65,9 +63,7 @@ func (c *redisCache) Get(key string, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	buffer := bytes.NewBuffer(data)
-	decoder := gob.NewDecoder(buffer)
-	return decoder.Decode(v)
+	return json.Unmarshal(data, v)
 }
 
 func (c *redisCache) Remove(key string) error {

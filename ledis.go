@@ -1,8 +1,7 @@
 package cache
 
 import (
-	"bytes"
-	"encoding/gob"
+	"encoding/json"
 	"github.com/siddontang/ledisdb/client/go/ledis"
 )
 
@@ -33,13 +32,12 @@ func LedisProviderToRedisDefault() Provider {
 	return LedisProvider(cfg)
 }
 
-func (c ledisCache) Set(key string, value interface{}) error {
-	buffer := new(bytes.Buffer)
-	encoder := gob.NewEncoder(buffer)
-	if err := encoder.Encode(value); err != nil {
+func (c ledisCache) Set(key string, v interface{}) error {
+	data, err := json.Marshal(v)
+	if err != nil {
 		return err
 	}
-	_, err := c.client.Do("set", key, buffer.Bytes())
+	_, err = c.client.Do("set", key, data)
 	return err
 }
 
@@ -51,9 +49,7 @@ func (c ledisCache) Get(key string, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	buffer := bytes.NewBuffer(data)
-	decoder := gob.NewDecoder(buffer)
-	return decoder.Decode(v)
+	return json.Unmarshal(data, v)
 }
 
 func (c ledisCache) Remove(key string) error {
