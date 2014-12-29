@@ -74,9 +74,9 @@ func TestCache(t *testing.T) {
 		}
 		TestProvider(MemoryProvider)
 		TestProvider(RedisProviderDefault)
-		TestProvider(LedisProviderDefault)
-		TestProvider(newClientAsProviderDefault)
-		TestProvider(LedisProviderToRedisDefault)
+		// TestProvider(LedisProviderDefault)
+		// TestProvider(newClientAsProviderDefault)
+		// TestProvider(LedisProviderToRedisDefault)
 	})
 }
 
